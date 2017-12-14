@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no,initial-scale=1,maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta charset="UTF-8">
+</head>
+
+<body>
+  <script src="https://s3-ap-northeast-1.amazonaws.com/cubism3.live2d.com/sdk/js_eap/live2dcubismcore.min.js"></script>
+  <script src="https://rawgit.com/Live2D/CubismJsComponents/master/example/wwwroot/js/live2dcubismframework.js"></script>
+  <script src="https://rawgit.com/phinajs/phina.js/develop/build/phina.js"></script>
+  <script src="https://rawgit.com/daishihmr/phigl.js/develop/build/phigl.js"></script>
+  <script src="../phina.live2d.js"></script>
+  <script>
+  phina.globalize();
+
+  phina.main(function() {
+    var app = GameApp({
+      backgroundColor: "#99bb10",
+      startLabel: "main",
+      width: 768,
+      height: 1024,
+      fps: 120,
+      assets: {
+        "live2d.moc": {
+          "Koharu": "assets/Koharu/Koharu.moc3",
+          //"hiyori": "assets/hiyori/model.moc3",
+          "Mark": "assets/Mark/Mark.moc3",
+        },
+        "image": {
+          "Koharu0": "assets/Koharu/Koharu.png",
+          // "hiyori0": "assets/hiyori/textures/texture_00.png",
+          // "hiyori1": "assets/hiyori/textures/texture_01.png",
+          "Mark0": "assets/Mark/Mark.png",
+        },
+        "live2d.motion": {
+          "Koharu0": "assets/Koharu/Koharu.motion3.json",
+          // "hiyori_m01": "assets/hiyori/motions/hiyori_m01.motion3.json",
+          // "hiyori_m02": "assets/hiyori/motions/hiyori_m02.motion3.json",
+          // "hiyori_m03": "assets/hiyori/motions/hiyori_m03.motion3.json",
+          // "hiyori_m04": "assets/hiyori/motions/hiyori_m04.motion3.json",
+          // "hiyori_m05": "assets/hiyori/motions/hiyori_m05.motion3.json",
+          // "hiyori_m06": "assets/hiyori/motions/hiyori_m06.motion3.json",
+          // "hiyori_m07": "assets/hiyori/motions/hiyori_m07.motion3.json",
+          // "hiyori_m08": "assets/hiyori/motions/hiyori_m08.motion3.json",
+          // "hiyori_m09": "assets/hiyori/motions/hiyori_m09.motion3.json",
+          // "hiyori_m10": "assets/hiyori/motions/hiyori_m10.motion3.json",
+          "Mark": "assets/Mark/Mark.motion3.json",
+        },
+      },
+    });
+
+    DisplayScene.defaults.width = app.canvas.width;
+    DisplayScene.defaults.height = app.canvas.height;
+
+    app.enableStats();
+    app.run();
+  });
+
+  phina.define("MainScene", {
+    superClass: "DisplayScene",
+    init: function() {
+      this.superInit();
+
+      var live2dLayer = Live2dLayer({
+        width: this.width,
+        height: this.height,
+        originX: 0,
+        originY: 0,
+      }).addChildTo(this);
+
+      var gl = live2dLayer.gl;
+
+      var chara0 = Live2dSprite(gl, {
+        moc: "Koharu",
+        textures: ["Koharu0"],
+      });
+      chara0.x = -0.4;
+      chara0.addChildTo(live2dLayer);
+      chara0.playMotion("Koharu0");
+
+      // var chara1 = Live2dSprite(gl, {
+      //   moc: "hiyori",
+      //   textures: ["hiyori0", "hiyori1"],
+      //   timeScale: 0.2,
+      // });
+      // chara1.setScale(0.006);
+      // chara1.x = 0.4;
+      // chara1.y = -1.5;
+      // chara1.addChildTo(live2dLayer);
+      // chara1.playMotion("hiyori_m10");
+
+      var chara2 = Live2dSprite(gl, {
+        moc: "Mark",
+        textures: ["Mark0"],
+      });
+      chara2.x = 0.0;
+      chara2.y = -0.2;
+      chara2.addChildTo(live2dLayer);
+      chara2.playMotion("Mark");
+    },
+  });
+  </script>
+</body>
+
+</html>
