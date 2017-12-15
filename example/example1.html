@@ -27,7 +27,7 @@
       assets: {
         "live2d.moc": {
           "Koharu": "assets/Koharu/Koharu.moc3",
-          //"hiyori": "assets/hiyori/model.moc3",
+          // "hiyori": "assets/hiyori/model.moc3",
           "Mark": "assets/Mark/Mark.moc3",
         },
         "image": {
@@ -72,35 +72,48 @@
         originY: 0,
       }).addChildTo(this);
 
-      var gl = live2dLayer.gl;
-
-      var chara0 = Live2dSprite(gl, {
+      var chara0 = Live2dSprite({
         moc: "Koharu",
         textures: ["Koharu0"],
       });
-      chara0.x = -0.4;
+      chara0.setPosition(76.8, 512);
       chara0.addChildTo(live2dLayer);
-      chara0.playMotion("Koharu0");
+      Tweener().attachTo(chara0.parameters)
+        .to({
+          PARAM_EYE_L_OPEN: 0,
+          PARAM_EYE_R_OPEN: 0,
+        }, 300, "easeInQuad")
+        .to({
+          PARAM_EYE_L_OPEN: 1,
+          PARAM_EYE_R_OPEN: 1,
+        }, 300, "easeOutQuad")
+        .wait(2000)
+        .setLoop(true);
+      Tweener().attachTo(chara0.parameters)
+        .to({
+          PARAM_EYE_BALL_X: chara0.parameters.spec.PARAM_EYE_BALL_X.min,
+        }, 100)
+        .to({
+          PARAM_EYE_BALL_X: chara0.parameters.spec.PARAM_EYE_BALL_X.max,
+        }, 100)
+        .setLoop(true);
 
-      // var chara1 = Live2dSprite(gl, {
+      // var chara1 = Live2dSprite({
       //   moc: "hiyori",
       //   textures: ["hiyori0", "hiyori1"],
-      //   timeScale: 0.2,
       // });
-      // chara1.setScale(0.006);
-      // chara1.x = 0.4;
-      // chara1.y = -1.5;
+      // chara1.setPosition(384, 1024);
+      // chara1.setScale(0.004);
       // chara1.addChildTo(live2dLayer);
-      // chara1.playMotion("hiyori_m10");
+      // chara1.play("hiyori_m02");
 
-      var chara2 = Live2dSprite(gl, {
+      var chara2 = Live2dSprite({
         moc: "Mark",
         textures: ["Mark0"],
       });
-      chara2.x = 0.0;
-      chara2.y = -0.2;
+      chara2.setPosition(691, 512);
       chara2.addChildTo(live2dLayer);
-      chara2.playMotion("Mark");
+      chara2.play("Mark");
     },
   });
   </script>

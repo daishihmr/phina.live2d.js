@@ -1,5 +1,7 @@
 phina.namespace(function() {
 
+  var Utils = LIVE2DCUBISMCORE.Utils;
+
   phina.define("phina.live2d.MocAsset", {
     superClass: "phina.asset.Asset",
 
@@ -58,6 +60,8 @@ phina.namespace(function() {
   phina.define("phina.live2d.Live2dLayer", {
     superClass: "phina.display.Layer",
 
+    viewportSize: 0,
+
     init: function(options) {
       this.superInit(options);
       this.domElement = document.createElement("canvas");
@@ -67,8 +71,10 @@ phina.namespace(function() {
       var gl = this.domElement.getContext("webgl", { stencil: true }) || this.domElement.getContext("experimental-webgl", { stencil: true });
       if (this.width > this.height) {
         gl.viewport(0, (this.height - this.width) / 2, this.width, this.width);
+        this.viewportSize = 1 / this.width;
       } else {
         gl.viewport((this.width - this.height) / 2, 0, this.height, this.height);
+        this.viewportSize = 1 / this.height;
       }
       gl.clearColor(0.0, 0.0, 0.0, 0.0);
       gl.clearStencil(0);
@@ -102,36 +108,59 @@ phina.namespace(function() {
   phina.define("phina.live2d.Live2dSprite", {
     superClass: "phina.app.Object2D",
 
+    gl: null,
     coreModel: null,
     textures: null,
     animator: null,
 
-    init: function(gl, options) {
+    parameters: null,
+
+    init: function(options) {
       this.superInit(options);
       options = ({}).$safe(options, phina.live2d.Live2dSprite.defaults);
-      this._initCore(gl, options);
-      this._initTextures(gl, options);
-      this._initMeshes(gl, options);
-      this._initAnimator(gl, options);
+      this._initCore(options);
+      this._initAnimator(options);
+      this._initParameters(options);
+      this.$watch("gl", function() {
+        this._initTextures(options);
+        this._initMeshes(options);
+      });
+      if (options.gl) {
+        this.gl = options.gl;
+      }
     },
 
-    _initCore: function(gl, options) {
+    onadded: function() {
+      var findGL = function(elm) {
+        if (elm.gl) return elm.gl;
+        else return findGL(elm.parent);
+      };
+      var gl = findGL(this.parent);
+      if (gl) this.gl = gl;
+    },
+
+    _initCore: function(options) {
       var moc = typeof(options.moc) === "string" ? AssetManager.get("live2d.moc", options.moc) : options.moc;
       this.coreModel = LIVE2DCUBISMCORE.Model.fromMoc(moc.data);
       console.log(this.coreModel);
     },
 
-    _initTextures: function(gl, options) {
+    _initTextures: function(options) {
+      var gl = this.gl;
       this.textures = options.textures.map(function(texture) {
         return phigl.Texture(gl, texture);
       });
     },
 
-    _initMeshes: function(gl, options) {
+    _initMeshes: function(options) {
+      var gl = this.gl;
       var drawables = this.coreModel.drawables;
       var textures = this.textures;
       this.meshes = Array.range(0, drawables.ids.length)
         .map(function(m) {
+
+          var vertexPositions = drawables.vertexPositions[m];
+
           var uvs = drawables.vertexUvs[m];
           uvs = uvs.slice(0, uvs.length);
           for (var v = 1; v < uvs.length; v += 2) {
@@ -144,27 +173,28 @@ phina.namespace(function() {
             .declareAttributes("vertexPosition", "uv")
             .setAttributeDataArray([{
               unitSize: 2,
-              data: drawables.vertexPositions[m],
+              data: vertexPositions,
             }, {
               unitSize: 2,
               data: uvs,
             }, ], gl.DYNAMIC_DRAW)
-            .declareUniforms("matrix", "visible", "texture", "alpha")
+            .declareUniforms("matrix", "visible", "texture", "opacity")
             .createVao();
 
           mesh.index = m;
           mesh.name = drawables.ids[m];
+          mesh.vertexPositions = vertexPositions;
           mesh.uvs = uvs;
           mesh.texture = textures[drawables.textureIndices[m]];
 
-          mesh.alpha = drawables.opacities[m];
-          mesh.visible = LIVE2DCUBISMCORE.Utils.hasIsVisibleBit(drawables.dynamicFlags[m]);
+          mesh.opacity = drawables.opacities[m];
+          mesh.visible = Utils.hasIsVisibleBit(drawables.dynamicFlags[m]);
 
-          mesh.isCulling = !LIVE2DCUBISMCORE.Utils.hasIsDoubleSidedBit(drawables.constantFlags[m]);
+          mesh.doubleSided = Utils.hasIsDoubleSidedBit(drawables.constantFlags[m]);
 
-          if (LIVE2DCUBISMCORE.Utils.hasBlendAdditiveBit(drawables.constantFlags[m])) {
+          if (Utils.hasBlendAdditiveBit(drawables.constantFlags[m])) {
             mesh.blendMode = "add";
-          } else if (LIVE2DCUBISMCORE.Utils.hasBlendMultiplicativeBit(drawables.constantFlags[m])) {
+          } else if (Utils.hasBlendMultiplicativeBit(drawables.constantFlags[m])) {
             mesh.blendMode = "multiply";
           }
 
@@ -185,7 +215,7 @@ phina.namespace(function() {
       this.orderedMeshes = this.meshes.clone();
     },
 
-    _initAnimator: function(gl, options) {
+    _initAnimator: function(options) {
       this.animatorBuilder = new LIVE2DCUBISMFRAMEWORK.AnimatorBuilder();
 
       options.animatorLayers.forEach(function(layer) {
@@ -200,18 +230,83 @@ phina.namespace(function() {
         .build();
     },
 
-    playMotion: function(layerName, motion) {
-      if (arguments.length === 1) {
-        motion = layerName;
-        layerName = "base";
-      }
+    _initParameters: function(options) {
+      this.parameters = phina.app.Element().addChildTo(this);
+      this.parameters.spec = {};
 
+      var params = this.coreModel.parameters;
+      Array.range(0, params.count).forEach(function(i) {
+        var id = params.ids[i];
+        var min = params.minimumValues[i];
+        var max = params.maximumValues[i];
+        this.parameters.spec[id] = {
+          defaultValue: params.defaultValues[i],
+          min: min,
+          max: max,
+        };
+        this.parameters.accessor(id, {
+          get: function() {
+            return params.values[i];
+          },
+          set: function(v) {
+            params.values[i] = Math.clamp(v, min, max);
+          },
+        });
+      }.bind(this));
+    },
+
+    isPlaying: function(layerName) {
+      layerName = layerName || "base";
+      return this.animator
+        .getLayer(layerName)
+        .isPlaying;
+    },
+
+    play: function(motion, fadeDuration, layerName) {
       if (typeof(motion) === "string") {
         motion = phina.asset.AssetManager.get("live2d.motion", motion).data;
       }
+      fadeDuration = fadeDuration || 0;
+      layerName = layerName || "base";
+
       this.animator
         .getLayer(layerName)
-        .play(motion);
+        .play(motion, fadeDuration);
+    },
+
+    resume: function(layerName) {
+      layerName = layerName || "base";
+      return this.animator
+        .getLayer(layerName)
+        .resume();
+    },
+
+    pause: function(layerName) {
+      layerName = layerName || "base";
+      return this.animator
+        .getLayer(layerName)
+        .pause();
+    },
+
+    stop: function(layerName) {
+      layerName = layerName || "base";
+      return this.animator
+        .getLayer(layerName)
+        .stop();
+    },
+
+    getCurrentTime: function(layerName) {
+      layerName = layerName || "base";
+      return this.animator
+        .getLayer(layerName)
+        .currentTime;
+    },
+
+    setCurrentTime: function(layerName, time) {
+      layerName = layerName || "base";
+      this.animator
+        .getLayer(layerName)
+        .currentTime = time;
     },
 
     update: function(app) {
@@ -222,13 +317,13 @@ phina.namespace(function() {
       var drawables = this.coreModel.drawables;
       for (var m = 0; m < this.meshes.length; ++m) {
         var mesh = this.meshes[m];
-        mesh.alpha = drawables.opacities[m];
-        mesh.visible = LIVE2DCUBISMCORE.Utils.hasIsVisibleBit(drawables.dynamicFlags[m]);
-        if (LIVE2DCUBISMCORE.Utils.hasVertexPositionsDidChangeBit(drawables.dynamicFlags[m])) {
-          mesh.vertices = drawables.vertexPositions[m];
+        mesh.opacity = drawables.opacities[m];
+        mesh.visible = Utils.hasIsVisibleBit(drawables.dynamicFlags[m]);
+        if (Utils.hasVertexPositionsDidChangeBit(drawables.dynamicFlags[m])) {
+          mesh.vertexPositions = drawables.vertexPositions[m];
           mesh.dirtyVertex = true;
         }
-        if (LIVE2DCUBISMCORE.Utils.hasRenderOrderDidChangeBit(drawables.dynamicFlags[m])) {
+        if (Utils.hasRenderOrderDidChangeBit(drawables.dynamicFlags[m])) {
           sort = true;
         }
       }
@@ -237,6 +332,21 @@ phina.namespace(function() {
         this.orderedMeshes.sort(function(lhs, rhs) {
           return drawables.renderOrders[lhs.index] - drawables.renderOrders[rhs.index];
         });
+      }
+
+      // this._checkAnimationEnd();
+    },
+
+    _checkAnimationEnd: function() {
+      for (var kv of this.animator._layers) {
+        var name = kv[0];
+        var layer = kv[1];
+        if (layer.isPlaying && layer.currentTime >= layer._animation.duration) {
+          layer.currentTime -= layer._animation.duration;
+          this.flare("finishAnimation", {
+            layer: name,
+          });
+        }
       }
     },
 
@@ -248,7 +358,7 @@ phina.namespace(function() {
         if (mesh.dirtyVertex) {
           mesh.setAttributeDataArray([{
             unitSize: 2,
-            data: this.coreModel.drawables.vertexPositions[mesh.index],
+            data: mesh.vertexPositions,
           }, {
             unitSize: 2,
             data: mesh.uvs,
@@ -256,7 +366,13 @@ phina.namespace(function() {
 
           mesh.dirtyVertex = false;
         }
+        var bx = this.x;
+        var by = this.y;
+        this.x = (this.x - layer.width * 0.5) * layer.viewportSize * 2;
+        this.y = (this.y - layer.height * 0.5) * -layer.viewportSize * 2;
         this._calcWorldMatrix();
+        this.x = bx;
+        this.y = by;
         var worldMatrix = [
           this._worldMatrix.m00, this._worldMatrix.m10, this._worldMatrix.m20,
           this._worldMatrix.m01, this._worldMatrix.m11, this._worldMatrix.m21,
@@ -265,7 +381,7 @@ phina.namespace(function() {
         mesh.uniforms["matrix"].setValue(worldMatrix);
         mesh.uniforms["visible"].setValue(mesh.visible ? 1 : 0);
         mesh.uniforms["texture"].setValue(0).setTexture(mesh.texture);
-        mesh.uniforms["alpha"].setValue(mesh.alpha);
+        mesh.uniforms["opacity"].setValue(mesh.opacity);
 
         switch (mesh.blendMode) {
           case "add":
@@ -293,8 +409,30 @@ phina.namespace(function() {
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         }
 
+        if (mesh.doubleSided) {
+          gl.disable(gl.CULL_FACE);
+        } else {
+          gl.enable(gl.CULL_FACE);
+        }
+
         mesh.draw();
       }
+    },
+
+    _accessor: {
+      playing: {
+        get: function() {
+          return this.isPlaying();
+        },
+      },
+      currentTime: {
+        get: function() {
+          return this.getCurrentTime();
+        },
+        set: function(v) {
+          this.setCurrentTime(v);
+        },
+      },
     },
 
     _static: {
@@ -359,12 +497,12 @@ phina.namespace(function() {
             "precision mediump float;",
 
             "uniform sampler2D texture;",
-            "uniform float alpha;",
+            "uniform float opacity;",
 
             "varying vec2 vUv;",
 
             "void main(void) {",
-            "  vec4 col = texture2D(texture, vUv) * vec4(1.0, 1.0, 1.0, alpha);",
+            "  vec4 col = texture2D(texture, vUv) * vec4(1.0, 1.0, 1.0, opacity);",
             "  if (col.a == 0.0) discard;",
             "  gl_FragColor = col;",
             "}",
