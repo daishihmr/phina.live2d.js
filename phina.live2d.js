@@ -105,7 +105,7 @@ phina.namespace(function() {
 
   });
 
-  phina.define("phina.live2d.Live2dSprite", {
+  phina.define("phina.live2d.Live2DSprite", {
     superClass: "phina.app.Object2D",
 
     gl: null,
@@ -117,7 +117,7 @@ phina.namespace(function() {
 
     init: function(options) {
       this.superInit(options);
-      options = ({}).$safe(options, phina.live2d.Live2dSprite.defaults);
+      options = ({}).$safe(options, phina.live2d.Live2DSprite.defaults);
       this._initCore(options);
       this._initAnimator(options);
       this._initParameters(options);
@@ -168,7 +168,7 @@ phina.namespace(function() {
           }
 
           var mesh = phigl.Drawable(gl)
-            .setProgram(phina.live2d.Live2dSprite.getProgram(gl))
+            .setProgram(phina.live2d.Live2DSprite.getProgram(gl))
             .setIndexValues(drawables.indices[m])
             .declareAttributes("vertexPosition", "uv")
             .setAttributeDataArray([{
@@ -220,7 +220,7 @@ phina.namespace(function() {
 
       options.animatorLayers.forEach(function(layer) {
         if (typeof(layer) === "string") layer = { name: layer };
-        layer = ({}).$safe(layer, phina.live2d.Live2dSprite.animationLayerDefaults);
+        layer = ({}).$safe(layer, phina.live2d.Live2DSprite.animationLayerDefaults);
         this.animatorBuilder.addLayer(layer.name, layer.blender, layer.weight);
       }.bind(this));
 
