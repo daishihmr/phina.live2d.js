@@ -57,7 +57,7 @@ phina.namespace(function() {
     });
   };
 
-  phina.define("phina.live2d.Live2dLayer", {
+  phina.define("phina.live2d.Live2DLayer", {
     superClass: "phina.display.Layer",
 
     viewportSize: 0,
