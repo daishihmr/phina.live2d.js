@@ -84,7 +84,7 @@ phina.namespace(function() {
   phina.define("phina.live2d.Live2DLayer", {
     superClass: "phina.display.Layer",
 
-    viewportSize: 0,
+    viewportSize: 1,
 
     init: function(options) {
       this.superInit(options);
@@ -104,6 +104,7 @@ phina.namespace(function() {
       gl.clearStencil(0);
       gl.enable(gl.BLEND);
       gl.enable(gl.STENCIL_TEST);
+      gl.cullFace(gl.BACK);
 
       this.gl = gl;
     },
@@ -172,7 +173,12 @@ phina.namespace(function() {
     _initTextures: function(options) {
       var gl = this.gl;
       this.textures = options.textures.map(function(texture) {
-        return phigl.Texture(gl, texture);
+        var tex = phigl.Texture(gl, texture);
+        tex.bind();
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        phigl.Texture.unbind(gl);
+        return tex;
       });
     },
 
@@ -180,7 +186,8 @@ phina.namespace(function() {
       var gl = this.gl;
       var drawables = this.coreModel.drawables;
       var textures = this.textures;
-      this.meshes = Array.range(0, drawables.ids.length)
+      var meshCount = drawables.ids.length;
+      this.meshes = Array.range(0, meshCount)
         .map(function(m) {
 
           var vertexPositions = drawables.vertexPositions[m];
@@ -225,7 +232,7 @@ phina.namespace(function() {
           return mesh;
         });
 
-      for (var m = 0; m < drawables.ids.length; ++m) {
+      for (var m = 0; m < meshCount; ++m) {
         if (drawables.maskCounts[m] > 0) {
           var maskIndex = drawables.masks[m][0];
           var maskMesh = this.meshes[maskIndex];
