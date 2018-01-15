@@ -382,7 +382,7 @@ phina.namespace(function() {
     },
 
     drawWebGL: function(layer) {
-      var gl = layer.gl;
+      var gl = this.gl;
 
       for (var i = 0; i < this.orderedMeshes.length; ++i) {
         var mesh = this.orderedMeshes[i];
@@ -481,18 +481,19 @@ phina.namespace(function() {
         weight: 1,
       },
 
-      _program: null,
+      _programCache: {},
       _vertexShader: null,
       _fragmentShader: null,
 
       getProgram: function(gl) {
-        if (this._program == null) {
-          this._program = phigl.Program(gl)
+        var id = phigl.GL.getId(gl);
+        if (this._programCache[id] == null) {
+          this._programCache[id] = phigl.Program(gl)
             .attach(this.getVertexShader())
             .attach(this.getFragmentShader())
             .link();
         }
-        return this._program;
+        return this._programCache[id];
       },
 
       getVertexShader: function() {
