@@ -209,8 +209,7 @@ phina.namespace(function() {
               unitSize: 2,
               data: uvs,
             }, ], gl.DYNAMIC_DRAW)
-            .declareUniforms("matrix", "visible", "texture", "opacity")
-            .createVao();
+            .declareUniforms("matrix", "visible", "texture", "opacity");
 
           mesh.index = m;
           mesh.name = drawables.ids[m];
@@ -482,24 +481,25 @@ phina.namespace(function() {
       },
 
       _programCache: {},
-      _vertexShader: null,
-      _fragmentShader: null,
+      _vertexShaderCache: {},
+      _fragmentShaderCache: {},
 
       getProgram: function(gl) {
         var id = phigl.GL.getId(gl);
         if (this._programCache[id] == null) {
           this._programCache[id] = phigl.Program(gl)
-            .attach(this.getVertexShader())
-            .attach(this.getFragmentShader())
+            .attach(this.getVertexShader(gl))
+            .attach(this.getFragmentShader(gl))
             .link();
         }
         return this._programCache[id];
       },
 
-      getVertexShader: function() {
-        if (this._vertexShader == null) {
-          this._vertexShader = phigl.VertexShader();
-          this._vertexShader.data = [
+      getVertexShader: function(gl) {
+        var id = phigl.GL.getId(gl);
+        if (this._vertexShaderCache[id] == null) {
+          this._vertexShaderCache[id] = phigl.VertexShader();
+          this._vertexShaderCache[id].data = [
             "attribute vec2 vertexPosition;",
             "attribute vec2 uv;",
 
@@ -519,13 +519,14 @@ phina.namespace(function() {
             "}",
           ].join("\n");
         }
-        return this._vertexShader;
+        return this._vertexShaderCache[id];
       },
 
-      getFragmentShader: function() {
-        if (this._fragmentShader == null) {
-          this._fragmentShader = phigl.FragmentShader();
-          this._fragmentShader.data = [
+      getFragmentShader: function(gl) {
+        var id = phigl.GL.getId(gl);
+        if (this._fragmentShaderCache[id] == null) {
+          this._fragmentShaderCache[id] = phigl.FragmentShader();
+          this._fragmentShaderCache[id].data = [
             "precision mediump float;",
 
             "uniform sampler2D texture;",
@@ -540,7 +541,7 @@ phina.namespace(function() {
             "}",
           ].join("\n");
         }
-        return this._fragmentShader;
+        return this._fragmentShaderCache[id];
       },
     },
   });

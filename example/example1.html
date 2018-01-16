@@ -111,9 +111,23 @@
         moc: "Mark",
         textures: ["Mark0"],
       });
-      chara2.setPosition(691, 512);
+      chara2.setPosition(691, 312);
       chara2.addChildTo(live2dLayer);
       chara2.play("Mark");
+
+      var live2dLayer2 = Live2DLayer({
+        width: this.width,
+        height: this.height,
+        originX: 0,
+        originY: 0,
+      }).addChildTo(this);
+      var chara22 = Live2DSprite({
+        moc: "Mark",
+        textures: ["Mark0"],
+      });
+      chara22.setPosition(691, 712);
+      chara22.addChildTo(live2dLayer2);
+      chara22.play("Mark");
     },
   });
   </script>
