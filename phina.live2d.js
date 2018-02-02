@@ -167,17 +167,13 @@ phina.namespace(function() {
     _initCore: function(options) {
       var moc = typeof(options.moc) === "string" ? AssetManager.get("live2d.moc", options.moc) : options.moc;
       this.coreModel = LIVE2DCUBISMCORE.Model.fromMoc(moc.data);
-      console.log(this.coreModel);
+      // console.log(this.coreModel);
     },
 
     _initTextures: function(options) {
       var gl = this.gl;
       this.textures = options.textures.map(function(texture) {
         var tex = phigl.Texture(gl, texture);
-        tex.bind();
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        phigl.Texture.unbind(gl);
         return tex;
       });
     },
