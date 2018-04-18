@@ -25,6 +25,7 @@
 phina.namespace(function() {
 
   var Utils = LIVE2DCUBISMCORE.Utils;
+  var bufferSize = 2048;
 
   phina.define("phina.live2d.MocAsset", {
     superClass: "phina.asset.Asset",
@@ -81,10 +82,23 @@ phina.namespace(function() {
     });
   };
 
+  phina.define("phina.live2d.PhysicsAsset", {
+    superClass: "phina.asset.File",
+
+    init: function() {
+      this.superInit();
+    },
+  });
+  phina.asset.AssetLoader.assetLoadFunctions["live2d.physics"] = function(key, path) {
+    var asset = phina.live2d.PhysicsAsset();
+    return asset.load({
+      path: path,
+      dataType: "json",
+    });
+  };
+
   phina.define("phina.live2d.Live2DLayer", {
     superClass: "phina.display.Layer",
-
-    viewportSize: 1,
 
     init: function(options) {
       this.superInit(options);
@@ -93,26 +107,89 @@ phina.namespace(function() {
       this.domElement.height = this.height;
 
       var gl = this.domElement.getContext("webgl", { stencil: true }) || this.domElement.getContext("experimental-webgl", { stencil: true });
-      if (this.width > this.height) {
-        gl.viewport(0, (this.height - this.width) / 2, this.width, this.width);
-        this.viewportSize = 1 / this.width;
-      } else {
-        gl.viewport((this.width - this.height) / 2, 0, this.height, this.height);
-        this.viewportSize = 1 / this.height;
-      }
       gl.clearColor(0.0, 0.0, 0.0, 0.0);
+      gl.clearDepth(1);
       gl.clearStencil(0);
       gl.enable(gl.BLEND);
       gl.enable(gl.STENCIL_TEST);
       gl.cullFace(gl.BACK);
 
       this.gl = gl;
+
+      this.offScreen = phigl.Framebuffer(gl, bufferSize, bufferSize, {
+        magFilter: gl.LINEAR,
+        minFilter: gl.LINEAR,
+      });
+
+      const screenVs = phigl.VertexShader();
+      screenVs.data = phina.live2d.Live2DLayer.aaVs;
+      const screenFs = phigl.FragmentShader();
+      screenFs.data = phina.live2d.Live2DLayer.aaFs;
+      const screenProgram = phigl.Program(gl)
+        .attach(screenVs)
+        .attach(screenFs)
+        .link();
+      this.screen = phigl.Drawable(gl)
+        .setProgram(screenProgram)
+        .setIndexValues([0, 1, 2, 1, 3, 2])
+        .declareAttributes("position", "uv")
+        .setAttributeDataArray([{
+          unitSize: 2,
+          data: [
+            //
+            -1, 1,
+            //
+            1, 1,
+            //
+            -1, -1,
+            //
+            1, -1,
+          ],
+        }, {
+          unitSize: 2,
+          data: [
+            //
+            0, 1,
+            //
+            1, 1,
+            //
+            0, 0,
+            //
+            1, 0,
+          ],
+        }, ])
+        .declareUniforms("texture", "alpha");
     },
 
     draw: function(canvas) {
       var gl = this.gl;
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-      this._drawChildren(this);
+
+      phigl.Framebuffer.unbind(gl);
+      // if (this.width > this.height) {
+      //   gl.viewport(0, (this.height - this.width) / 2, this.width, this.width);
+      // } else {
+      //   gl.viewport((this.width - this.height) / 2, 0, this.height, this.height);
+      // }
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      var children = this.children;
+      for (var i = 0; i < children.length; i++) {
+        this.offScreen.bind();
+        gl.viewport(0, 0, bufferSize, bufferSize);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+        this._drawChildren(children[i]);
+
+        phigl.Framebuffer.unbind(gl);
+        if (this.width > this.height) {
+          gl.viewport(0, (this.height - this.width) / 2, this.width, this.width);
+        } else {
+          gl.viewport((this.width - this.height) / 2, 0, this.height, this.height);
+        }
+        this.screen.uniforms["texture"].setValue(0).setTexture(this.offScreen.texture);
+        this.screen.uniforms["alpha"].setValue(children[i]._alpha);
+        this.screen.draw();
+      }
+
       gl.flush();
 
       var image = this.domElement;
@@ -128,6 +205,33 @@ phina.namespace(function() {
       }
     },
 
+    _static: {
+      aaVs: [
+        "attribute vec2 position;",
+        "attribute vec2 uv;",
+
+        "varying vec2 vUv;",
+
+        "void main(void) {",
+        "vUv = uv;",
+        "gl_Position = vec4(position, 0.0, 1.0);",
+        "}",
+      ].join("\n"),
+      aaFs: [
+        "precision mediump float;",
+
+        "uniform float alpha;",
+        "uniform sampler2D texture;",
+
+        "varying vec2 vUv;",
+
+        "void main(void){",
+        "  vec4 c0 = texture2D(texture, vUv);",
+        "  gl_FragColor = c0 * vec4(1.0, 1.0, 1.0, alpha);",
+        "}",
+      ].join("\n"),
+    },
+
   });
 
   phina.define("phina.live2d.Live2DSprite", {
@@ -137,8 +241,15 @@ phina.namespace(function() {
     coreModel: null,
     textures: null,
     animator: null,
+    physicsRig: null,
 
     parameters: null,
+
+    canvasWidth: 0,
+    canvasHeight: 0,
+    pixelsPerUnit: 0,
+
+    _alpha: 1,
 
     init: function(options) {
       this.superInit(options);
@@ -146,6 +257,7 @@ phina.namespace(function() {
       this._initCore(options);
       this._initAnimator(options);
       this._initParameters(options);
+      this._initPhisics(options);
       this.$watch("gl", function() {
         this._initTextures(options);
         this._initMeshes(options);
@@ -153,6 +265,10 @@ phina.namespace(function() {
       if (options.gl) {
         this.gl = options.gl;
       }
+
+      this.canvasWidth = this.coreModel.canvasinfo.CanvasWidth;
+      this.canvasHeight = this.coreModel.canvasinfo.CanvasHeight;
+      this.pixelsPerUnit = this.coreModel.canvasinfo.PixelsPerUnit;
     },
 
     onadded: function() {
@@ -167,7 +283,7 @@ phina.namespace(function() {
     _initCore: function(options) {
       var moc = typeof(options.moc) === "string" ? AssetManager.get("live2d.moc", options.moc) : options.moc;
       this.coreModel = LIVE2DCUBISMCORE.Model.fromMoc(moc.data);
-      // console.log(this.coreModel);
+      console.log(this.coreModel);
     },
 
     _initTextures: function(options) {
@@ -242,15 +358,15 @@ phina.namespace(function() {
     },
 
     _initAnimator: function(options) {
-      this.animatorBuilder = new LIVE2DCUBISMFRAMEWORK.AnimatorBuilder();
+      var animatorBuilder = new LIVE2DCUBISMFRAMEWORK.AnimatorBuilder();
 
       options.animatorLayers.forEach(function(layer) {
         if (typeof(layer) === "string") layer = { name: layer };
         layer = ({}).$safe(layer, phina.live2d.Live2DSprite.animationLayerDefaults);
-        this.animatorBuilder.addLayer(layer.name, layer.blender, layer.weight);
+        animatorBuilder.addLayer(layer.name, layer.blender, layer.weight);
       }.bind(this));
 
-      this.animator = this.animatorBuilder
+      this.animator = animatorBuilder
         .setTarget(this.coreModel)
         .setTimeScale(options.timeScale)
         .build();
@@ -279,6 +395,19 @@ phina.namespace(function() {
           },
         });
       }.bind(this));
+    },
+
+    _initPhisics: function(options) {
+      if (!options.physics) return;
+
+      var physics = typeof(options.physics) === "string" ? AssetManager.get("live2d.physics", options.physics) : options.physics;
+
+      var physicsRigBuilder = new LIVE2DCUBISMFRAMEWORK.PhysicsRigBuilder();
+      physicsRigBuilder.setPhysics3Json(physics.data);
+      this.physicsRig = physicsRigBuilder
+        .setTarget(this.coreModel)
+        .setTimeScale(options.timeScale)
+        .build();
     },
 
     isPlaying: function(layerName) {
@@ -337,6 +466,9 @@ phina.namespace(function() {
 
     update: function(app) {
       this.animator.updateAndEvaluate(app.deltaTime * 0.001);
+      if (this.physicsRig) {
+        this.physicsRig.updateAndEvaluate(app.deltaTime * 0.001);
+      }
       this.coreModel.update();
 
       var sort = false;
@@ -394,8 +526,8 @@ phina.namespace(function() {
         }
         var bx = this.x;
         var by = this.y;
-        this.x = (this.x - layer.width * 0.5) * layer.viewportSize * 2;
-        this.y = (this.y - layer.height * 0.5) * -layer.viewportSize * 2;
+        this.x = (this.x - layer.width * 0.5) / (bufferSize * 0.5);
+        this.y = (this.y);
         this._calcWorldMatrix();
         this.x = bx;
         this.y = by;
@@ -445,6 +577,11 @@ phina.namespace(function() {
       }
     },
 
+    setAlpha: function(v) {
+      this._alpha = v;
+      return this;
+    },
+
     _accessor: {
       playing: {
         get: function() {
@@ -457,6 +594,14 @@ phina.namespace(function() {
         },
         set: function(v) {
           this.setCurrentTime(v);
+        },
+      },
+      alpha: {
+        get: function() {
+          return this._alpha;
+        },
+        set: function(v) {
+          this.setAlpha(v);
         },
       },
     },
