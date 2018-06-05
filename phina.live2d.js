@@ -25,7 +25,9 @@
 phina.namespace(function() {
 
   var Utils = LIVE2DCUBISMCORE.Utils;
-  var bufferSize = 2048;
+  var tempQuat = quat.create();
+
+  var bufferSize = 4096;
 
   phina.define("phina.live2d.MocAsset", {
     superClass: "phina.asset.Asset",
@@ -113,19 +115,20 @@ phina.namespace(function() {
       gl.enable(gl.BLEND);
       gl.enable(gl.STENCIL_TEST);
       gl.cullFace(gl.BACK);
+      gl.viewport(0, 0, this.width, this.height);
 
       this.gl = gl;
 
-      this.offScreen = phigl.Framebuffer(gl, bufferSize, bufferSize, {
+      this.offScreenBuffer = phigl.Framebuffer(gl, bufferSize, bufferSize, {
         magFilter: gl.LINEAR,
         minFilter: gl.LINEAR,
       });
 
-      const screenVs = phigl.VertexShader();
+      var screenVs = phigl.VertexShader();
       screenVs.data = phina.live2d.Live2DLayer.aaVs;
-      const screenFs = phigl.FragmentShader();
+      var screenFs = phigl.FragmentShader();
       screenFs.data = phina.live2d.Live2DLayer.aaFs;
-      const screenProgram = phigl.Program(gl)
+      var screenProgram = phigl.Program(gl)
         .attach(screenVs)
         .attach(screenFs)
         .link();
@@ -137,13 +140,13 @@ phina.namespace(function() {
           unitSize: 2,
           data: [
             //
-            -1, 1,
+            -0.5, 0.5,
             //
-            1, 1,
+            0.5, 0.5,
             //
-            -1, -1,
+            -0.5, -0.5,
             //
-            1, -1,
+            0.5, -0.5,
           ],
         }, {
           unitSize: 2,
@@ -158,34 +161,42 @@ phina.namespace(function() {
             1, 0,
           ],
         }, ])
-        .declareUniforms("texture", "alpha");
+        .declareUniforms("mMatrix", "vpMatrix", "texture", "alpha");
+
+      this.mMatrix = mat4.create();
+      var viewMatrix = mat4.lookAt(mat4.create(), [0, 0, 1], [0, 0, 0], [0, 1, 0]);
+      var projectionMatrix = mat4.ortho(mat4.create(), 0, this.width, this.height, 0, 0.1, 1000);
+      this.vpMatrix = mat4.create();
+      this.vpMatrix = mat4.multiply(this.vpMatrix, viewMatrix, this.vpMatrix);
+      this.vpMatrix = mat4.multiply(this.vpMatrix, projectionMatrix, this.vpMatrix);
     },
 
     draw: function(canvas) {
       var gl = this.gl;
 
       phigl.Framebuffer.unbind(gl);
-      // if (this.width > this.height) {
-      //   gl.viewport(0, (this.height - this.width) / 2, this.width, this.width);
-      // } else {
-      //   gl.viewport((this.width - this.height) / 2, 0, this.height, this.height);
-      // }
       gl.clear(gl.COLOR_BUFFER_BIT);
 
       var children = this.children;
       for (var i = 0; i < children.length; i++) {
-        this.offScreen.bind();
+        var model = children[i];
+
+        this.offScreenBuffer.bind();
         gl.viewport(0, 0, bufferSize, bufferSize);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-        this._drawChildren(children[i]);
+        this._drawChildren(model);
 
         phigl.Framebuffer.unbind(gl);
-        if (this.width > this.height) {
-          gl.viewport(0, (this.height - this.width) / 2, this.width, this.width);
-        } else {
-          gl.viewport((this.width - this.height) / 2, 0, this.height, this.height);
-        }
-        this.screen.uniforms["texture"].setValue(0).setTexture(this.offScreen.texture);
+        gl.viewport(0, 0, this.width, this.height);
+        mat4.fromRotationTranslationScale(
+          this.mMatrix,
+          quat.fromEuler(tempQuat, 0, 0, model.rotation),
+          [model.x, model.y, 0],
+          [model.scaleX * bufferSize, -model.scaleY * bufferSize, 1]
+        );
+        this.screen.uniforms["mMatrix"].setValue(this.mMatrix);
+        this.screen.uniforms["vpMatrix"].setValue(this.vpMatrix);
+        this.screen.uniforms["texture"].setValue(0).setTexture(this.offScreenBuffer.texture);
         this.screen.uniforms["alpha"].setValue(children[i]._alpha);
         this.screen.draw();
       }
@@ -210,24 +221,28 @@ phina.namespace(function() {
         "attribute vec2 position;",
         "attribute vec2 uv;",
 
+        "uniform mat4 mMatrix;",
+        "uniform mat4 vpMatrix;",
+
         "varying vec2 vUv;",
 
         "void main(void) {",
-        "vUv = uv;",
-        "gl_Position = vec4(position, 0.0, 1.0);",
+        "  vUv = uv;",
+        "  gl_Position = vpMatrix * mMatrix * vec4(position, 0.0, 1.0);",
         "}",
       ].join("\n"),
       aaFs: [
         "precision mediump float;",
 
-        "uniform float alpha;",
         "uniform sampler2D texture;",
+        "uniform float alpha;",
 
         "varying vec2 vUv;",
 
         "void main(void){",
         "  vec4 c0 = texture2D(texture, vUv);",
         "  gl_FragColor = c0 * vec4(1.0, 1.0, 1.0, alpha);",
+        // "  gl_FragColor = vec4(0.2, 0.2, 0.8, 1.0);",
         "}",
       ].join("\n"),
     },
@@ -321,7 +336,7 @@ phina.namespace(function() {
               unitSize: 2,
               data: uvs,
             }, ], gl.DYNAMIC_DRAW)
-            .declareUniforms("matrix", "visible", "texture", "opacity");
+            .declareUniforms("visible", "texture", "opacity");
 
           mesh.index = m;
           mesh.name = drawables.ids[m];
@@ -524,19 +539,6 @@ phina.namespace(function() {
 
           mesh.dirtyVertex = false;
         }
-        var bx = this.x;
-        var by = this.y;
-        this.x = (this.x - layer.width * 0.5) / (bufferSize * 0.5);
-        this.y = (this.y);
-        this._calcWorldMatrix();
-        this.x = bx;
-        this.y = by;
-        var worldMatrix = [
-          this._worldMatrix.m00, this._worldMatrix.m10, this._worldMatrix.m20,
-          this._worldMatrix.m01, this._worldMatrix.m11, this._worldMatrix.m21,
-          this._worldMatrix.m02, this._worldMatrix.m12, this._worldMatrix.m22,
-        ];
-        mesh.uniforms["matrix"].setValue(worldMatrix);
         mesh.uniforms["visible"].setValue(mesh.visible ? 1 : 0);
         mesh.uniforms["texture"].setValue(0).setTexture(mesh.texture);
         mesh.uniforms["opacity"].setValue(mesh.opacity);
@@ -644,7 +646,6 @@ phina.namespace(function() {
             "attribute vec2 vertexPosition;",
             "attribute vec2 uv;",
 
-            "uniform mat3 matrix;",
             "uniform float visible;",
 
             "varying vec2 vUv;",
@@ -654,7 +655,7 @@ phina.namespace(function() {
             "  if (visible < 0.5) {",
             "    gl_Position = vec4(0.0);",
             "  } else {",
-            "    vec3 pos = matrix * vec3(vertexPosition, 1.0);",
+            "    vec3 pos = vec3(vertexPosition, 1.0);",
             "    gl_Position = vec4(pos, 1.0);",
             "  }",
             "}",

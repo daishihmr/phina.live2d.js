@@ -13,7 +13,7 @@
   <script src="https://rawgit.com/Live2D/CubismJsComponents/master/example/wwwroot/js/live2dcubismframework.js"></script>
   <script src="https://rawgit.com/phinajs/phina.js/develop/build/phina.js"></script>
   <script src="https://rawgit.com/toji/gl-matrix/v2.4.0/dist/gl-matrix.js"></script>
-  <script src="../../phigl.js/build/phigl.js"></script>
+  <script src="../lib/phigl.js"></script>
   <script src="../phina.live2d.js"></script>
   <script>
   phina.globalize();
@@ -91,16 +91,17 @@
         // physics: "minami",
       });
       minami1.setScale(1);
-      minami1.setPosition(this.width * 0.0, this.height * 0.0);
+      minami1.setPosition(this.width * 0.0, this.height * 0.5);
       minami1.addChildTo(live2dLayer);
+      minami1.alpha = 0.5;
 
       var minami2 = Live2DSprite({
         moc: "minami",
         textures: ["minami0", "minami1"],
         physics: "minami",
       });
-      minami2.setScale(1);
-      minami2.setPosition(this.width * 0.5, this.height * 0.0);
+      minami2.setScale(0.75);
+      minami2.setPosition(this.width * 0.5, this.height * 0.75);
       minami2.addChildTo(live2dLayer);
       minami2.play("minami8");
 
