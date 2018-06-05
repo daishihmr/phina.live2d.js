@@ -104,7 +104,7 @@ phina.namespace(function() {
 
     init: function(options) {
       this.superInit(options);
-      this.domElement = document.createElement("canvas");
+      this.domElement = options.domElement || document.createElement("canvas");
       this.domElement.width = this.width;
       this.domElement.height = this.height;
 
