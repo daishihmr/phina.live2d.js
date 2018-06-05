@@ -362,8 +362,12 @@ phina.namespace(function() {
         if (drawables.maskCounts[m] > 0) {
           var maskIndex = drawables.masks[m][0];
           var maskMesh = this.meshes[maskIndex];
-          maskMesh.isMask = true;
-          this.meshes[m].mask = maskMesh.index;
+          if (maskMesh) {
+            maskMesh.isMask = true;
+            this.meshes[m].mask = maskMesh.index;
+          } else {
+            console.warn("maskMesh is not defined. (maskIndex = " + maskIndex + ")");
+          }
         } else {
           this.meshes[m].mask = -1;
         }
