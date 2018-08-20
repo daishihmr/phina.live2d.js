@@ -14,7 +14,7 @@
   <script src="https://rawgit.com/phinajs/phina.js/develop/build/phina.js"></script>
   <script src="https://rawgit.com/toji/gl-matrix/v2.4.0/dist/gl-matrix.js"></script>
   <script src="../lib/phigl.js"></script>
-  <script src="../build/phina.live2d.js"></script>
+  <script src="../build/phina.live2d.min.js"></script>
   <script>
   phina.globalize();
 
@@ -85,111 +85,15 @@
         originY: 0,
       }).addChildTo(this);
 
-      // var minami1 = Live2DSprite({
-      //   moc: "minami",
-      //   textures: ["minami0", "minami1"],
-      //   // physics: "minami",
-      // });
-      // minami1.setScale(1);
-      // minami1.setPosition(this.width * 0.0, this.height * 0.5);
-      // minami1.addChildTo(live2dLayer);
-      // minami1.alpha = 0.5;
-
-      var minami2 = Live2DSprite({
+      minami = Live2DSprite({
         moc: "minami",
         textures: ["minami0", "minami1"],
         physics: "minami",
       });
-      minami2.setScale(0.75);
-      minami2.setPosition(this.width * 0.5, this.height * 0.75);
-      minami2.addChildTo(live2dLayer);
-      minami2.play("minami8");
-
-      this.tweener
-        .wait(1000)
-        .call(() => {
-          minami2.remove();
-
-          console.log("今！");
-
-          minami2 = Live2DSprite({
-            moc: "minami",
-            textures: ["minami0", "minami1"],
-            physics: "minami",
-          });
-          minami2.setScale(0.75);
-          minami2.setPosition(this.width * 0.5, this.height * 0.75);
-          minami2.addChildTo(live2dLayer);
-          minami2.play("minami8");
-        })
-        .setLoop(true);
-
-      // var mayu = Live2DSprite({
-      //   moc: "mayu",
-      //   textures: ["mayu0", "mayu1"],
-      //   physics: "mayu",
-      // });
-      // mayu.setScale(3);
-      // mayu.setPosition(0, 0);
-      // mayu.addChildTo(live2dLayer);
-      // mayu.play("mayuIdle");
-
-      // var chara0 = Live2DSprite({
-      //   moc: "Koharu",
-      //   textures: ["Koharu0"],
-      // });
-      // chara0.setPosition(76.8, 512);
-      // chara0.addChildTo(live2dLayer);
-      // Tweener().attachTo(chara0.parameters)
-      //   .to({
-      //     PARAM_EYE_L_OPEN: 0,
-      //     PARAM_EYE_R_OPEN: 0,
-      //   }, 300, "easeInQuad")
-      //   .to({
-      //     PARAM_EYE_L_OPEN: 1,
-      //     PARAM_EYE_R_OPEN: 1,
-      //   }, 300, "easeOutQuad")
-      //   .wait(2000)
-      //   .setLoop(true);
-      // Tweener().attachTo(chara0.parameters)
-      //   .to({
-      //     PARAM_EYE_BALL_X: chara0.parameters.spec.PARAM_EYE_BALL_X.min,
-      //   }, 100)
-      //   .to({
-      //     PARAM_EYE_BALL_X: chara0.parameters.spec.PARAM_EYE_BALL_X.max,
-      //   }, 100)
-      //   .setLoop(true);
-
-      // var chara1 = Live2DSprite({
-      //   moc: "hiyori",
-      //   textures: ["hiyori0", "hiyori1"],
-      // });
-      // chara1.setPosition(384, 1024);
-      // chara1.setScale(0.004);
-      // chara1.addChildTo(live2dLayer);
-      // chara1.play("hiyori_m02");
-
-      // var chara2 = Live2DSprite({
-      //   moc: "Mark",
-      //   textures: ["Mark0"],
-      // });
-      // chara2.setPosition(691, 312);
-      // chara2.addChildTo(live2dLayer);
-      // chara2.play("Mark");
-
-      // var live2dLayer2 = Live2DLayer({
-      //   width: this.width,
-      //   height: this.height,
-      //   originX: 0,
-      //   originY: 0,
-      // }).addChildTo(this);
-      // var chara22 = Live2DSprite({
-      //   moc: "Mark",
-      //   textures: ["Mark0"],
-      // });
-      // chara22.setPosition(691, 712);
-      // chara22.addChildTo(live2dLayer2);
-      // chara22.play("Mark");
+      minami.setScale(0.75);
+      minami.setPosition(this.width * 0.5, this.height * 0.75);
+      minami.addChildTo(live2dLayer);
+      minami.play("minami8");
     },
   });
   </script>

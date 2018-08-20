@@ -298,7 +298,6 @@ phina.namespace(function() {
     _initCore: function(options) {
       var moc = typeof(options.moc) === "string" ? AssetManager.get("live2d.moc", options.moc) : options.moc;
       this.coreModel = LIVE2DCUBISMCORE.Model.fromMoc(moc.data);
-      console.log(this.coreModel);
     },
 
     _initTextures: function(options) {
@@ -365,8 +364,6 @@ phina.namespace(function() {
           if (maskMesh) {
             maskMesh.isMask = true;
             this.meshes[m].mask = maskMesh.index;
-          } else {
-            console.warn("maskMesh is not defined. (maskIndex = " + maskIndex + ")");
           }
         } else {
           this.meshes[m].mask = -1;
@@ -586,6 +583,18 @@ phina.namespace(function() {
     setAlpha: function(v) {
       this._alpha = v;
       return this;
+    },
+
+    delete: function() {
+      if(!this.textures) return ;
+      //テクスチャの破棄
+      this.textures.forEach(function(texture) {
+        texture.delete();
+      });
+      //メッシュの破棄
+      this.meshes.forEach(function(mesh) {
+        mesh.delete();
+      });
     },
 
     _accessor: {
